@@ -17,11 +17,12 @@ const tools = [
 export default function MesaPage() {
   return (
     <AppShell>
-      <div className="grid gap-5 xl:grid-cols-[76px_minmax(0,1fr)_330px]">
-        <Card className="flex xl:min-h-[620px] xl:flex-col">
+      <div className="grid gap-5 xl:grid-cols-[92px_minmax(0,1fr)_360px]">
+        <Card className="flex xl:min-h-[calc(100vh-7.5rem)] xl:flex-col">
+          <p className="mb-3 hidden text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500 xl:block">Ferramentas</p>
           <div className="flex gap-2 xl:flex-col">
             {tools.map((tool) => (
-              <Button key={tool.label} className="h-11 w-11 px-0" type="button" variant="ghost" aria-label={tool.label} title={tool.label}>
+              <Button key={tool.label} className="h-11 w-11 px-0" type="button" variant={tool.label === "Mover" ? "secondary" : "ghost"} aria-label={tool.label} title={tool.label}>
                 <tool.icon size={18} />
               </Button>
             ))}
@@ -31,9 +32,8 @@ export default function MesaPage() {
           <MapGrid />
           <TokenBar />
         </div>
-        <Card>
-          <h2 className="mb-4 text-lg font-bold text-white">Chat e rolagens</h2>
-          <ChatLog />
+        <Card className="xl:min-h-[calc(100vh-7.5rem)]">
+          <ChatLog title="Chat e rolagens" />
         </Card>
       </div>
     </AppShell>

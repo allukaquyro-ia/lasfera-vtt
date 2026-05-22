@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/Button";
 export default function RegisterPage() {
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10">
-      <section className="w-full max-w-lg rounded-lg border border-antique/25 bg-black/55 p-7 shadow-ember backdrop-blur">
+      <section className="w-full max-w-2xl rounded-lg border border-antique/25 bg-black/55 p-7 shadow-ember backdrop-blur">
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-antique">Cadastro</p>
+          <p className="section-title">Cadastro</p>
           <h1 className="mt-2 text-3xl font-bold text-white">Criar aventureiro</h1>
+          <p className="mt-2 text-sm text-stone-400">Formulario visual mockado para entrada na mesa.</p>
         </div>
 
         <form className="grid gap-4 md:grid-cols-2">
@@ -15,7 +16,7 @@ export default function RegisterPage() {
             <label key={field} className="block text-sm font-semibold text-stone-300">
               {field}
               <input
-                className="mt-2 h-11 w-full rounded-md border border-white/10 bg-white/5 px-3 text-white outline-none focus:border-antique/60"
+                className="field mt-2"
                 type={field === "Senha" ? "password" : "text"}
               />
             </label>

@@ -12,7 +12,7 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="hidden min-h-screen w-64 border-r border-white/10 bg-black/35 px-4 py-5 lg:block">
+    <aside className="hidden min-h-screen w-64 shrink-0 border-r border-white/10 bg-black/45 px-4 py-5 lg:block">
       <div className="mb-8 flex items-center gap-3">
         <div className="grid h-11 w-11 place-items-center rounded-md border border-antique/40 bg-ruby/30">
           <Swords className="text-antique" size={22} />
@@ -23,7 +23,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="space-y-2">
+      <nav className="space-y-2" aria-label="Navegação principal">
         {navItems.map((item) => (
           <Button key={item.href} className="w-full justify-start" href={item.href} variant="ghost">
             <item.icon size={17} />
@@ -32,13 +32,13 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Grupo</p>
+      <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+        <p className="mb-3 section-title text-stone-400">Grupo</p>
         <div className="space-y-2">
-          {characters.slice(0, 4).map((character) => (
-            <div key={character.id} className="flex items-center gap-2 text-sm">
-              <span className="h-2 w-2 rounded-full bg-ally" />
+          {characters.map((character) => (
+            <div key={character.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm">
               <span className="text-stone-200">{character.name}</span>
+              <span className={character.online ? "h-2 w-2 rounded-full bg-ally" : "h-2 w-2 rounded-full bg-stone-600"} />
             </div>
           ))}
         </div>

@@ -8,8 +8,9 @@ export default function BibliotecaPage() {
   return (
     <AppShell>
       <div className="mb-5">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-antique">Biblioteca</p>
+        <p className="section-title">Biblioteca</p>
         <h1 className="mt-1 text-3xl font-bold text-white">Compendio de Lasfera</h1>
+        <p className="mt-2 max-w-2xl text-sm text-stone-400">Categorias mockadas para consulta durante a mesa. O conteudo real entra depois do modelo de dados.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {libraryCategories.map((category) => (

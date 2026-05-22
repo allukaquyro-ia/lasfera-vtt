@@ -28,9 +28,12 @@ body {
   margin: 0;
   color: #f4efe7;
   background:
-    radial-gradient(circle at top left, rgba(159, 18, 57, 0.24), transparent 30rem),
-    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.14), transparent 28rem),
+    linear-gradient(rgba(201, 164, 93, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 164, 93, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at top left, rgba(159, 18, 57, 0.26), transparent 30rem),
+    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.16), transparent 28rem),
     linear-gradient(135deg, #070708 0%, #121116 54%, #050506 100%);
+  background-size: 28px 28px, 28px 28px, auto, auto, auto;
 }
 
 a {
@@ -47,7 +50,7 @@ select {
 
 @layer components {
   .surface {
-    @apply border border-white/10 bg-ash/80 shadow-glyph backdrop-blur;
+    @apply border border-white/10 bg-ash/85 shadow-glyph backdrop-blur;
   }
 
   .rune-grid {
@@ -55,5 +58,13 @@ select {
       linear-gradient(rgba(201, 164, 93, 0.08) 1px, transparent 1px),
       linear-gradient(90deg, rgba(201, 164, 93, 0.08) 1px, transparent 1px);
     background-size: 40px 40px;
+  }
+
+  .field {
+    @apply h-11 w-full rounded-md border border-white/10 bg-black/35 px-3 text-sm text-white outline-none transition placeholder:text-stone-600 focus:border-antique/60 focus:bg-black/45;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-[0.2em] text-antique;
   }
 }

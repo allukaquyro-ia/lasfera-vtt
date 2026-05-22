@@ -14,12 +14,12 @@ export function Tabs({ items }: { items: TabItem[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto rounded-lg border border-white/10 bg-black/20 p-1">
+      <div className="flex gap-2 overflow-x-auto rounded-lg border border-white/10 bg-black/30 p-1">
         {items.map((item) => (
           <button
             key={item.label}
             className={cn(
-              "h-9 shrink-0 rounded-md px-3 text-sm font-semibold text-stone-300 transition",
+              "h-10 shrink-0 rounded-md px-3 text-sm font-semibold text-stone-300 transition hover:bg-white/5",
               active === item.label && "bg-ruby text-white shadow-ember",
             )}
             onClick={() => setActive(item.label)}

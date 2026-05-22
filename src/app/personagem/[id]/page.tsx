@@ -16,12 +16,12 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
 
   return (
     <AppShell>
-      <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <Card>
+      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <Card className="xl:min-h-[calc(100vh-7.5rem)]">
           <div className="mb-5 grid h-24 w-24 place-items-center rounded-lg border border-antique/35 bg-ruby/30 text-4xl font-bold text-white shadow-ember">
             {character.name.slice(0, 1)}
           </div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-antique">Nivel {character.level}</p>
+          <p className="section-title">Nivel {character.level}</p>
           <h1 className="mt-1 text-4xl font-bold text-white">{character.name}</h1>
           <p className="mt-2 text-stone-300">{character.className}</p>
 
@@ -39,10 +39,21 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
               <StatusChip tone={character.side === "ally" ? "ally" : "neutral"}>{character.status}</StatusChip>
               <StatusChip tone="arcane">CA {character.armor}</StatusChip>
             </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Info title="Elemento" value={character.element} compact />
+              <Info title="Jogador" value={character.player} compact />
+            </div>
           </div>
         </Card>
 
-        <Card>
+        <Card className="min-h-[620px]">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="section-title">Ficha de personagem</p>
+              <h2 className="mt-1 text-2xl font-bold text-white">Dados de mesa</h2>
+            </div>
+            <StatusChip tone="antique">mock editavel depois</StatusChip>
+          </div>
           <Tabs
             items={[
               {
@@ -80,11 +91,11 @@ export default function CharacterPage({ params }: { params: { id: string } }) {
   );
 }
 
-function Info({ title, value }: { title: string; value: string }) {
+function Info({ title, value, compact = false }: { title: string; value: string; compact?: boolean }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+    <div className="rounded-lg border border-white/10 bg-black/25 p-4">
       <p className="text-xs uppercase tracking-[0.18em] text-stone-400">{title}</p>
-      <p className="mt-2 text-lg font-semibold text-white">{value}</p>
+      <p className={compact ? "mt-2 text-sm font-semibold text-white" : "mt-2 text-lg font-semibold text-white"}>{value}</p>
     </div>
   );
 }
@@ -93,7 +104,7 @@ function List({ items }: { items: string[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {items.map((item) => (
-        <div key={item} className="rounded-lg border border-white/10 bg-black/20 p-4 text-stone-200">
+        <div key={item} className="rounded-lg border border-white/10 bg-black/25 p-4 text-stone-200">
           {item}
         </div>
       ))}
