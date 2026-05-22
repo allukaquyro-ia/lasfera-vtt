@@ -1,5 +1,6 @@
 import { characters } from "./characters";
 import { logs } from "./campaign";
+import { characterSpellcasting } from "./spells";
 import { calculateProficiencyBonus, defaultAttributeScores } from "@/lib/rules";
 import type { AttributeScores, SavingThrowProficiencies, SkillProficiencies } from "@/types/rules";
 import type { LogEntry, SessionActor, SessionState, SessionToken } from "@/types/session";
@@ -56,6 +57,18 @@ export const initialActors: SessionActor[] = characters.map((character) => ({
   skillProficiencies: buildSkillProficiencies(character.name),
   savingThrowProficiencies: buildSavingThrows(character.name),
   damageExpression: character.name === "Lilith" || character.name === "Raissa" ? "1d8+3" : "1d8+2",
+  resources: {
+    mana: character.name === "Lilith" || character.name === "Raissa" ? 8 : 4,
+    foco: 5,
+    favor: character.name === "Lilith" ? 6 : 3,
+    cargas: 3,
+  },
+  maxResources: {
+    mana: character.name === "Lilith" || character.name === "Raissa" ? 8 : 4,
+    foco: 5,
+    favor: character.name === "Lilith" ? 6 : 3,
+    cargas: 3,
+  },
 }));
 
 export const defaultCreatureRules = {
@@ -64,6 +77,8 @@ export const defaultCreatureRules = {
   skillProficiencies: {},
   savingThrowProficiencies: {},
   damageExpression: "1d6+2",
+  resources: { mana: 2, foco: 2, favor: 0, cargas: 1 },
+  maxResources: { mana: 2, foco: 2, favor: 0, cargas: 1 },
 };
 
 export const initialTokens: SessionToken[] = initialActors.map((actor, index) => ({
@@ -88,6 +103,9 @@ export const initialSessionState: SessionState = {
   logs: initialLogs,
   actionHistory: [],
   sheetNotes: {},
+  spellcasting: characterSpellcasting,
+  spellSlots: Object.fromEntries(Object.entries(characterSpellcasting).map(([actorId, spellcasting]) => [actorId, spellcasting.slots])),
+  pactSlots: Object.fromEntries(Object.entries(characterSpellcasting).map(([actorId, spellcasting]) => [actorId, spellcasting.pactSlots])),
   selectedTokenId: initialTokens[0]?.id ?? null,
   combat: {
     active: false,

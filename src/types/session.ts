@@ -1,6 +1,7 @@
 import type { CharacterSide } from "@/data/characters";
-import type { TableActionEvent } from "@/types/actions";
+import type { ResourceKey, TableActionEvent } from "@/types/actions";
 import type { AttributeScores, SavingThrowProficiencies, SkillProficiencies } from "@/types/rules";
+import type { CharacterSpellcasting, PactMagicSlots, SpellSlot } from "@/types/spells";
 
 export type ActorKind = "character" | "creature";
 export type TokenSide = CharacterSide;
@@ -28,6 +29,8 @@ export type SessionActor = {
   skillProficiencies: SkillProficiencies;
   savingThrowProficiencies: SavingThrowProficiencies;
   damageExpression: string;
+  resources: Record<ResourceKey, number>;
+  maxResources: Record<ResourceKey, number>;
   spells?: string[];
   inventory?: string[];
   blessings?: string[];
@@ -76,6 +79,9 @@ export type SessionState = {
   logs: LogEntry[];
   actionHistory: TableActionEvent[];
   sheetNotes: Record<string, string>;
+  spellcasting: Record<string, CharacterSpellcasting>;
+  spellSlots: Record<string, SpellSlot[]>;
+  pactSlots: Record<string, PactMagicSlots | undefined>;
   selectedTokenId: string | null;
   combat: CombatState;
 };

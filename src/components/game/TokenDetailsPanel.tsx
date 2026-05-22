@@ -92,6 +92,14 @@ export function TokenDetailsPanel() {
           Condições: {selectedTokenActor.conditions.length ? selectedTokenActor.conditions.join(", ") : "nenhuma"}
         </p>
 
+        <div className="grid grid-cols-2 gap-2 text-xs text-stone-300">
+          {Object.entries(selectedTokenActor.resources).map(([resource, value]) => (
+            <div key={resource} className="rounded-md border border-white/10 bg-black/30 p-2">
+              <span className="capitalize">{resource}</span>: {value}/{selectedTokenActor.maxResources[resource as keyof typeof selectedTokenActor.maxResources]}
+            </div>
+          ))}
+        </div>
+
         <input className="field" min={0} type="number" value={amount} onChange={(event) => setAmount(Number(event.target.value))} />
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="danger" onClick={() => dispatch({ type: "apply-damage", actorId: selectedTokenActor.id, amount })}>Dano</Button>

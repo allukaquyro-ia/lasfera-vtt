@@ -12,6 +12,7 @@ export function ActionFlowPanel({ sourceActor }: { sourceActor: SessionActor }) 
   const options = useMemo(() => getActionOptions(sourceActor), [sourceActor]);
   const [actionId, setActionId] = useState(options[0]?.id ?? "");
   const [targetActorId, setTargetActorId] = useState(sourceActor.id);
+  const [lastResult, setLastResult] = useState<string | null>(null);
   const selectedAction = options.find((option) => option.id === actionId) ?? options[0];
   const activeActors = state.tokens.map((token) => actorsById.get(token.actorId)).filter((actor): actor is SessionActor => Boolean(actor));
   const target = actorsById.get(targetActorId);
@@ -21,6 +22,7 @@ export function ActionFlowPanel({ sourceActor }: { sourceActor: SessionActor }) 
   }
 
   function execute() {
+    setLastResult(`${sourceActor.name} resolveu ${selectedAction.name} em ${target?.name ?? "alvo"}. Veja o log no chat.`);
     dispatch({
       type: "execute-table-action",
       action: {
@@ -32,6 +34,10 @@ export function ActionFlowPanel({ sourceActor }: { sourceActor: SessionActor }) 
         damageExpression: selectedAction.damageExpression,
         healingExpression: selectedAction.healingExpression,
         condition: selectedAction.condition,
+        saveAttribute: selectedAction.saveAttribute,
+        saveDc: selectedAction.saveDc,
+        halfDamageOnSave: selectedAction.halfDamageOnSave,
+        cost: selectedAction.cost,
       },
     });
   }
@@ -67,15 +73,26 @@ export function ActionFlowPanel({ sourceActor }: { sourceActor: SessionActor }) 
       <div className="rounded-md border border-white/10 bg-black/30 p-3 text-sm text-stone-300">
         <p className="font-semibold text-white">{selectedAction.name}</p>
         <p className="mt-1 text-xs text-stone-500">{selectedAction.description}</p>
-        <p className="mt-2 text-xs text-antique">
-          {selectedAction.attackExpression ? `Ataque ${selectedAction.attackExpression}` : "Sem ataque"}{" | "}
-          {selectedAction.damageExpression ? `Dano ${selectedAction.damageExpression}` : selectedAction.healingExpression ? `Cura ${selectedAction.healingExpression}` : "Sem rolagem de efeito"}
-        </p>
+        <div className="mt-3 space-y-1 text-xs text-antique">
+          <p>{selectedAction.attackExpression ? `Ataque contra CA: ${selectedAction.attackExpression}` : "Sem ataque contra CA"}</p>
+          <p>{selectedAction.saveDc ? `Resistência: ${selectedAction.saveAttribute} CD ${selectedAction.saveDc}` : "Sem resistência"}</p>
+          <p>{selectedAction.damageExpression ? `Dano esperado: ${selectedAction.damageExpression}` : selectedAction.healingExpression ? `Cura esperada: ${selectedAction.healingExpression}` : "Sem dano/cura"}</p>
+          <p>{selectedAction.cost ? `Custo: ${selectedAction.cost.amount} ${selectedAction.cost.resource} (${sourceActor.resources[selectedAction.cost.resource]}/${sourceActor.maxResources[selectedAction.cost.resource]})` : "Sem custo"}</p>
+          <p>{selectedAction.condition ? `Condição possível: ${selectedAction.condition}` : "Sem condição"}</p>
+        </div>
         {target ? <p className="mt-2 text-xs text-stone-400">Alvo: {target.name} HP {target.hp}/{target.maxHp}</p> : null}
       </div>
 
-      <Button className="w-full" type="button" onClick={execute}>
-        Usar em alvo
+      {sourceActor.conditions.includes("Atordoado") ? (
+        <div className="rounded-md border border-enemy/40 bg-enemy/10 p-2 text-xs text-red-100">
+          Atordoado: este ator não pode resolver ação rápida agora.
+        </div>
+      ) : null}
+
+      {lastResult ? <p className="rounded-md border border-antique/25 bg-antique/10 p-2 text-xs text-stone-200">{lastResult}</p> : null}
+
+      <Button className="w-full" type="button" onClick={execute} disabled={sourceActor.conditions.includes("Atordoado")}>
+        Resolver ação
       </Button>
     </div>
   );

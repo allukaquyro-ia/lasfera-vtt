@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Tabs } from "@/components/ui/Tabs";
-import { AbilitiesPanel, BlessingsPanel, ElementsPanel, GeneralPanel, InventoryPanel } from "@/components/sheet/LasferaPanels";
+import { BlessingsPanel, ElementsPanel, GeneralPanel, InventoryPanel } from "@/components/sheet/LasferaPanels";
+import { SpellcastingPanel } from "@/components/sheet/SpellcastingPanel";
 import { conditions } from "@/data/conditions";
 import { lasferaSheets } from "@/data/lasfera";
 import { attributes, calculateModifiers, skills } from "@/lib/rules";
@@ -105,7 +106,7 @@ export function CharacterSheet({ id, compact = false }: { id: string; compact?: 
                 </div>
               ),
             },
-            { label: "Magias", content: sheet ? <AbilitiesPanel sheet={sheet} actorId={character.id} actorName={character.name} /> : <List items={character.spells ?? []} /> },
+            { label: "Magias", content: <SpellcastingPanel actorId={character.id} /> },
             { label: "Inventário", content: sheet ? <InventoryPanel sheet={sheet} /> : <List items={character.inventory ?? []} /> },
             { label: "Elementos", content: sheet ? <ElementsPanel sheet={sheet} /> : <List items={[character.element ?? "Sem elemento", "Afinidade secundaria bloqueada", "Ressonancia instavel"]} /> },
             { label: "Bênçãos", content: sheet ? <BlessingsPanel sheet={sheet} actorName={character.name} /> : <List items={character.blessings ?? []} /> },

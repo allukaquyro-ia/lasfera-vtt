@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, useReducer } from "react";
 import { defaultCreatureRules, initialSessionState } from "@/data/session";
 import { rollDiceExpression } from "@/lib/dice";
+import { clampHp, resolveTableAction } from "@/lib/actionResolution";
 import {
   calculateModifier,
   calculateProficiencyBonus,
@@ -17,6 +18,7 @@ import {
 import type { TableActionEvent, TableActionInput } from "@/types/actions";
 import type { CreatureInput, LogEntry, LogKind, SessionActor, SessionState } from "@/types/session";
 import type { AttributeKey, DiceRollResult, SkillKey } from "@/types/rules";
+import type { Spell } from "@/types/spells";
 
 type SessionAction =
   | { type: "select-token"; tokenId: string }
@@ -38,6 +40,11 @@ type SessionAction =
   | { type: "pass-turn"; actorId: string }
   | { type: "update-sheet-note"; actorId: string; value: string }
   | { type: "save-sheet-note"; actorId: string }
+  | { type: "spend-spell-slot"; actorId: string; slotLevel: number }
+  | { type: "recover-spell-slot"; actorId: string; slotLevel: number }
+  | { type: "long-rest-spells"; actorId: string }
+  | { type: "short-rest-pact"; actorId: string }
+  | { type: "cast-spell"; actorId: string; targetActorId: string; spell: Spell; slotLevel?: number }
   | { type: "create-creature"; creature: CreatureInput }
   | { type: "start-combat" }
   | { type: "next-turn" }
@@ -89,10 +96,6 @@ function rollLog(actorName: string, type: string, result: DiceRollResult, comman
       ...(criticalLine ? [criticalLine] : []),
     ],
   };
-}
-
-function clampHp(hp: number, maxHp: number) {
-  return Math.max(0, Math.min(maxHp, Number.isFinite(hp) ? hp : 0));
 }
 
 function initiativeModifier(actor: SessionActor) {
@@ -270,42 +273,53 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
       if (!source || !target) return state;
 
       try {
-        const attackRoll = action.action.attackExpression ? rollDiceExpression(action.action.attackExpression) : undefined;
-        const effectExpression = action.action.damageExpression ?? action.action.healingExpression;
-        const effectRoll = effectExpression ? rollDiceExpression(effectExpression) : undefined;
-        const appliedDamage = action.action.damageExpression ? effectRoll?.total ?? 0 : undefined;
-        const appliedHealing = action.action.healingExpression ? effectRoll?.total ?? 0 : undefined;
-        const nextHp = clampHp(target.hp - (appliedDamage ?? 0) + (appliedHealing ?? 0), target.maxHp);
-        const conditionApplied = action.action.condition && !target.conditions.includes(action.action.condition);
-        const nextConditions = action.action.condition
-          ? conditionApplied
-            ? [...target.conditions, action.action.condition]
-            : target.conditions
-          : target.conditions;
+        const resolution = resolveTableAction(action.action, source, target);
+        const nextHp = resolution.damage?.hpAfter ?? resolution.healing?.hpAfter ?? target.hp;
+        const nextConditions = resolution.condition && resolution.conditionApplied ? [...target.conditions, resolution.condition] : target.conditions;
+        const nextResources = resolution.cost
+          ? {
+              ...source.resources,
+              [resolution.cost.resource]: Math.max(0, source.resources[resolution.cost.resource] - resolution.cost.amount),
+            }
+          : source.resources;
 
         const event: TableActionEvent = {
           ...action.action,
           id: nowId("action"),
-          attackRoll,
-          effectRoll,
-          appliedDamage,
-          appliedHealing,
+          attackRoll: resolution.attack?.roll,
+          effectRoll: resolution.damage?.roll ?? resolution.healing?.roll,
+          appliedDamage: resolution.damage?.amount,
+          appliedHealing: resolution.healing?.amount,
+          resolution,
           timestamp: "agora",
           logText: `${source.name} usou ${action.action.name} em ${target.name}.`,
         };
 
         const lines = [
-          ...actionRollLines("Ataque", attackRoll),
-          ...actionRollLines(appliedHealing !== undefined ? "Cura" : "Dano", effectRoll),
-          ...(appliedDamage !== undefined ? [`${target.name} sofreu ${appliedDamage} de dano.`, `HP: ${nextHp}/${target.maxHp}`] : []),
-          ...(appliedHealing !== undefined ? [`${target.name} recuperou ${appliedHealing} de HP.`, `HP: ${nextHp}/${target.maxHp}`] : []),
-          ...(action.action.condition ? [`Condição: ${action.action.condition}${conditionApplied ? " aplicada" : " já estava ativa"}.`] : []),
+          ...(resolution.cost ? [`Custo: ${source.name} gastou ${resolution.cost.amount} de ${resolution.cost.resource}.`, `${resolution.cost.resource}: ${nextResources[resolution.cost.resource]}/${source.maxResources[resolution.cost.resource]}`] : []),
+          ...actionRollLines("Ataque", resolution.attack?.roll),
+          ...(resolution.attack ? [`CA do alvo: ${resolution.attack.targetArmor}`, `Resultado: ${resolution.attack.isCritical ? "Crítico" : resolution.attack.isFumble ? "Falha crítica" : resolution.attack.didHit ? "Acerto" : "Erro"}`] : []),
+          ...(resolution.save ? [`Resistência: ${target.name} rolou ${resolution.save.attribute}.`, `${resolution.save.roll.expression} = ${resolution.save.roll.total}`, `CD: ${resolution.save.dc}`, `Resultado: ${resolution.save.didResist ? "Resistiu" : "Falhou"}`] : []),
+          ...actionRollLines(resolution.healing ? "Cura" : "Dano", resolution.damage?.roll ?? resolution.healing?.roll),
+          ...(resolution.damage?.criticalBonusRoll ? actionRollLines("Dano crítico adicional", resolution.damage.criticalBonusRoll) : []),
+          ...(resolution.damage ? [`${target.name} sofreu ${resolution.damage.amount} de dano.`, `HP: ${resolution.damage.hpAfter}/${target.maxHp}`] : []),
+          ...(resolution.healing ? [`${target.name} recuperou ${resolution.healing.amount} de HP.`, `HP: ${resolution.healing.hpAfter}/${target.maxHp}`] : []),
+          ...(resolution.condition ? [`Condição: ${resolution.condition}${resolution.conditionApplied ? " aplicada" : " não aplicada"}.`] : []),
         ];
 
         return addLog(
           {
             ...state,
-            actors: state.actors.map((actor) => (actor.id === target.id ? { ...actor, hp: nextHp, conditions: nextConditions, status: nextConditions[0] ?? actor.status } : actor)),
+            actors: state.actors.map((actor) => {
+              let nextActor = actor;
+              if (actor.id === target.id) {
+                nextActor = { ...nextActor, hp: nextHp, conditions: nextConditions, status: nextConditions[0] ?? actor.status };
+              }
+              if (actor.id === source.id) {
+                nextActor = { ...nextActor, resources: nextResources };
+              }
+              return nextActor;
+            }),
             actionHistory: [...state.actionHistory, event].slice(-100),
           },
           {
@@ -356,6 +370,106 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         user: actor?.name,
         message: `${actor?.name ?? "Personagem"} atualizou anotações da ficha.`,
       });
+    }
+    case "spend-spell-slot":
+      return {
+        ...state,
+        spellSlots: {
+          ...state.spellSlots,
+          [action.actorId]: (state.spellSlots[action.actorId] ?? []).map((slot) => (slot.level === action.slotLevel ? { ...slot, current: Math.max(0, slot.current - 1) } : slot)),
+        },
+      };
+    case "recover-spell-slot":
+      return {
+        ...state,
+        spellSlots: {
+          ...state.spellSlots,
+          [action.actorId]: (state.spellSlots[action.actorId] ?? []).map((slot) => (slot.level === action.slotLevel ? { ...slot, current: Math.min(slot.max, slot.current + 1) } : slot)),
+        },
+      };
+    case "long-rest-spells":
+      return addLog(
+        {
+          ...state,
+          spellSlots: {
+            ...state.spellSlots,
+            [action.actorId]: (state.spellSlots[action.actorId] ?? []).map((slot) => ({ ...slot, current: slot.max })),
+          },
+        },
+        { kind: "system", message: "Descanso longo: slots de magia recuperados." },
+      );
+    case "short-rest-pact": {
+      const pact = state.pactSlots[action.actorId];
+      return addLog(
+        {
+          ...state,
+          pactSlots: pact ? { ...state.pactSlots, [action.actorId]: { ...pact, current: pact.max } } : state.pactSlots,
+        },
+        { kind: "system", message: "Descanso curto: slots de pacto recuperados." },
+      );
+    }
+    case "cast-spell": {
+      const source = state.actors.find((actor) => actor.id === action.actorId);
+      const target = state.actors.find((actor) => actor.id === action.targetActorId);
+      const spellcasting = state.spellcasting[action.actorId];
+      if (!source || !target || !spellcasting) return state;
+
+      const isCantrip = action.spell.level === 0;
+      const chosenSlot = action.slotLevel;
+      const pact = state.pactSlots[action.actorId];
+      const usesPact = spellcasting.progressionType === "pact_magic" && !isCantrip;
+      const normalSlot = chosenSlot ? state.spellSlots[action.actorId]?.find((slot) => slot.level === chosenSlot) : undefined;
+
+      if (!isCantrip && usesPact && (!pact || pact.current <= 0 || pact.slotLevel < action.spell.level)) {
+        return addLog(state, { kind: "error", user: source.name, message: `${source.name} não tem slot de pacto disponível para ${action.spell.name}.` });
+      }
+
+      if (!isCantrip && !usesPact && (!chosenSlot || !normalSlot || normalSlot.current <= 0 || chosenSlot < action.spell.level)) {
+        return addLog(state, { kind: "error", user: source.name, message: `${source.name} não tem slot disponível para ${action.spell.name}.` });
+      }
+
+      const actionInput: TableActionInput = {
+        sourceActorId: source.id,
+        targetActorId: target.id,
+        type: "magia",
+        name: action.spell.name,
+        attackExpression: action.spell.requiresAttackRoll ? `1d20+${spellcasting.spellAttackBonus}` : undefined,
+        damageExpression: action.spell.damageFormula,
+        healingExpression: action.spell.healingFormula,
+        saveAttribute: action.spell.saveAbility,
+        saveDc: action.spell.saveAbility ? spellcasting.spellSaveDc : undefined,
+        halfDamageOnSave: Boolean(action.spell.damageFormula && action.spell.saveAbility),
+      };
+
+      try {
+        const resolution = resolveTableAction(actionInput, source, target);
+        const nextHp = resolution.damage?.hpAfter ?? resolution.healing?.hpAfter ?? target.hp;
+        const nextSlots = isCantrip || usesPact
+          ? state.spellSlots[action.actorId]
+          : (state.spellSlots[action.actorId] ?? []).map((slot) => (slot.level === chosenSlot ? { ...slot, current: Math.max(0, slot.current - 1) } : slot));
+        const nextPact = usesPact && pact ? { ...pact, current: Math.max(0, pact.current - 1) } : pact;
+        const lines = [
+          isCantrip ? "Truque: não consome slot." : usesPact ? `Magia de Pacto: slot nível ${pact?.slotLevel} gasto. Slots: ${(nextPact?.current ?? 0)}/${pact?.max ?? 0}` : `Slot gasto: nível ${chosenSlot}.`,
+          ...actionRollLines("Ataque mágico", resolution.attack?.roll),
+          ...(resolution.attack ? [`CA do alvo: ${resolution.attack.targetArmor}`, `Resultado: ${resolution.attack.didHit ? "Acerto" : "Erro"}`] : []),
+          ...(resolution.save ? [`Resistência: ${target.name} rolou ${resolution.save.attribute}.`, `${resolution.save.roll.expression} = ${resolution.save.roll.total}`, `CD: ${resolution.save.dc}`, `Resultado: ${resolution.save.didResist ? "Resistiu" : "Falhou"}`] : []),
+          ...actionRollLines(resolution.healing ? "Cura" : "Dano", resolution.damage?.roll ?? resolution.healing?.roll),
+          ...(resolution.damage ? [`${target.name} sofreu ${resolution.damage.amount} de dano.`, `HP: ${resolution.damage.hpAfter}/${target.maxHp}`] : []),
+          ...(resolution.healing ? [`${target.name} recuperou ${resolution.healing.amount} de HP.`, `HP: ${resolution.healing.hpAfter}/${target.maxHp}`] : []),
+        ];
+
+        return addLog(
+          {
+            ...state,
+            actors: state.actors.map((actor) => (actor.id === target.id ? { ...actor, hp: nextHp } : actor)),
+            spellSlots: { ...state.spellSlots, [action.actorId]: nextSlots },
+            pactSlots: { ...state.pactSlots, [action.actorId]: nextPact },
+          },
+          { kind: "action", user: source.name, message: `${source.name} conjurou ${action.spell.name} em ${target.name}.`, lines },
+        );
+      } catch (error) {
+        return addLog(state, { kind: "error", user: source.name, message: `Não foi possível conjurar ${action.spell.name}.`, lines: [error instanceof Error ? error.message : "Erro inesperado."] });
+      }
     }
     case "create-creature": {
       const id = nowId("creature");
