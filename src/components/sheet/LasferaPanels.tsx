@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ActionFlowPanel } from "@/components/game/ActionFlowPanel";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -151,29 +152,33 @@ export function InventoryPanel({ sheet }: { sheet: LasferaCharacterSheet }) {
 }
 
 export function AbilitiesPanel({ sheet, actorId, actorName }: { sheet: LasferaCharacterSheet; actorId: string; actorName: string }) {
-  const { dispatch } = useSession();
+  const { actorsById, dispatch } = useSession();
+  const actor = actorsById.get(actorId);
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {sheet.abilities.map((ability) => (
-        <Card key={ability.id}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="section-title">{ability.type}</p>
-              <h3 className="mt-1 text-xl font-bold text-white">{ability.name}</h3>
+    <div className="space-y-4">
+      {actor ? <ActionFlowPanel sourceActor={actor} /> : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        {sheet.abilities.map((ability) => (
+          <Card key={ability.id}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="section-title">{ability.type}</p>
+                <h3 className="mt-1 text-xl font-bold text-white">{ability.name}</h3>
+              </div>
+              <StatusChip tone="arcane">{ability.cost}</StatusChip>
             </div>
-            <StatusChip tone="arcane">{ability.cost}</StatusChip>
-          </div>
-          <p className="mt-2 text-sm text-stone-400">Alcance: {ability.range}</p>
-          <p className="mt-3 leading-6 text-stone-200">{ability.description}</p>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button type="button" variant="ghost" onClick={() => dispatch({ type: "add-log", kind: "system", user: actorName, message: `${actorName} usou ${ability.name}.`, lines: [ability.description] })}>Usar</Button>
-            <Button type="button" variant="secondary" onClick={() => ability.damage ? dispatch({ type: "roll-expression", actorId, expression: ability.damage, label: ability.name, user: actorName }) : ability.healing ? dispatch({ type: "roll-expression", actorId, expression: ability.healing, label: ability.name, user: actorName }) : dispatch({ type: "add-log", kind: "system", user: actorName, message: `${ability.name} não possui rolagem configurada.` })}>
-              Rolar
-            </Button>
-          </div>
-        </Card>
-      ))}
+            <p className="mt-2 text-sm text-stone-400">Alcance: {ability.range}</p>
+            <p className="mt-3 leading-6 text-stone-200">{ability.description}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button type="button" variant="ghost" onClick={() => dispatch({ type: "add-log", kind: "system", user: actorName, message: `${actorName} preparou ${ability.name}.`, lines: [ability.description, "Use o painel acima para escolher um alvo e aplicar."] })}>Preparar</Button>
+              <Button type="button" variant="secondary" onClick={() => ability.damage ? dispatch({ type: "roll-expression", actorId, expression: ability.damage, label: ability.name, user: actorName }) : ability.healing ? dispatch({ type: "roll-expression", actorId, expression: ability.healing, label: ability.name, user: actorName }) : dispatch({ type: "add-log", kind: "system", user: actorName, message: `${ability.name} não possui rolagem configurada.` })}>
+                Rolar
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

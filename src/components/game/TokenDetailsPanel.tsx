@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ActionFlowPanel } from "@/components/game/ActionFlowPanel";
 import { conditionNames } from "@/data/conditions";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -60,6 +61,7 @@ export function TokenDetailsPanel() {
         <Button type="button" variant="ghost" onClick={() => dispatch({ type: "roll-basic-attack", actorId: selectedTokenActor.id })}>Rolar</Button>
         <Button type="button" variant="ghost" onClick={() => dispatch({ type: "roll-damage", actorId: selectedTokenActor.id })}>Dano rolado</Button>
       </div>
+      <ActionFlowPanel sourceActor={selectedTokenActor} />
     </div>
   );
 }

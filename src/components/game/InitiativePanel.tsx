@@ -9,9 +9,12 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/state/SessionContext";
 
 export function InitiativePanel() {
-  const { state, selectedTokenActor, dispatch } = useSession();
+  const { state, actorsById, selectedTokenActor, dispatch } = useSession();
   const [amount, setAmount] = useState(5);
   const [condition, setCondition] = useState(conditionNames[0]);
+  const currentEntry = state.combat.order[state.combat.turnIndex];
+  const nextEntry = state.combat.order[(state.combat.turnIndex + 1) % Math.max(1, state.combat.order.length)];
+  const currentActor = currentEntry ? actorsById.get(currentEntry.actorId) : undefined;
 
   return (
     <div className="space-y-3">
@@ -21,6 +24,12 @@ export function InitiativePanel() {
           <p className="mt-1 text-xs text-stone-500">
             {state.combat.active ? "Combate em andamento" : "Nenhum combate ativo"}
           </p>
+          {state.combat.active && currentEntry ? (
+            <p className="mt-2 text-sm text-stone-200">
+              Turno: <span className="font-semibold text-antique">{currentEntry.name}</span>
+              {nextEntry ? <span className="text-stone-500"> | Próximo: {nextEntry.name}</span> : null}
+            </p>
+          ) : null}
         </div>
         <StatusChip tone={state.combat.active ? "ruby" : "neutral"}>
           {state.combat.active ? "ativo" : "off"}
@@ -65,6 +74,11 @@ export function InitiativePanel() {
           Fim
         </Button>
       </div>
+      {state.combat.active && currentActor?.kind === "character" ? (
+        <Button className="w-full" type="button" variant="secondary" onClick={() => dispatch({ type: "pass-turn", actorId: currentActor.id })}>
+          Passar turno de {currentActor.name}
+        </Button>
+      ) : null}
 
       <div className="border-t border-white/10 pt-4">
         <p className="section-title mb-3">Ações no selecionado</p>

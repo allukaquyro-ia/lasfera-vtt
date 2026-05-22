@@ -12,7 +12,7 @@ import { useSession } from "@/state/SessionContext";
 import type { SessionActor } from "@/types/session";
 
 export function CharacterSheet({ id }: { id: string }) {
-  const { actorsById, dispatch } = useSession();
+  const { state, actorsById, dispatch } = useSession();
   const character = actorsById.get(id);
 
   if (!character) {
@@ -25,6 +25,8 @@ export function CharacterSheet({ id }: { id: string }) {
 
   const hpPercent = Math.round((character.hp / character.maxHp) * 100);
   const sheet = lasferaSheets[id];
+  const currentTurn = state.combat.order[state.combat.turnIndex];
+  const isOwnTurn = state.combat.active && currentTurn?.actorId === character.id;
 
   return (
     <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
@@ -60,6 +62,15 @@ export function CharacterSheet({ id }: { id: string }) {
           <div className="pt-2">
             <QuickNumberActions actorId={character.id} />
           </div>
+          {state.combat.active ? (
+            <div className="rounded-lg border border-white/10 bg-black/25 p-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-stone-500">Combate</p>
+              <p className="mt-1 text-sm text-stone-200">{isOwnTurn ? "É o seu turno." : `Aguardando turno: ${currentTurn?.name ?? "-"}`}</p>
+              <Button className="mt-3 w-full" type="button" variant={isOwnTurn ? "secondary" : "ghost"} disabled={!isOwnTurn} onClick={() => dispatch({ type: "pass-turn", actorId: character.id })}>
+                {isOwnTurn ? "Passar turno" : "Aguardando turno"}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </Card>
 

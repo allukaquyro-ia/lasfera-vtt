@@ -1,4 +1,5 @@
 import type { CharacterSide } from "@/data/characters";
+import type { TableActionEvent } from "@/types/actions";
 import type { AttributeScores, SavingThrowProficiencies, SkillProficiencies } from "@/types/rules";
 
 export type ActorKind = "character" | "creature";
@@ -42,7 +43,7 @@ export type SessionToken = {
   y: number;
 };
 
-export type LogKind = "message" | "command" | "roll" | "damage" | "healing" | "system" | "error";
+export type LogKind = "message" | "command" | "roll" | "damage" | "healing" | "action" | "system" | "error";
 
 export type LogEntry = {
   id: string;
@@ -73,6 +74,7 @@ export type SessionState = {
   actors: SessionActor[];
   tokens: SessionToken[];
   logs: LogEntry[];
+  actionHistory: TableActionEvent[];
   selectedTokenId: string | null;
   combat: CombatState;
 };

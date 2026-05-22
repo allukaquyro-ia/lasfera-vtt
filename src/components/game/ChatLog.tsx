@@ -31,6 +31,15 @@ export function ChatLog({ title = "Chat e logs", className = "" }: { title?: str
       return;
     }
 
+    if (name === "/passar" || name === "/fimturno") {
+      if (!selectedTokenActor) {
+        dispatch({ type: "add-log", kind: "error", user: "Mesa", command, message: "Selecione um token antes de passar o turno." });
+        return;
+      }
+      dispatch({ type: "pass-turn", actorId: selectedTokenActor.id });
+      return;
+    }
+
     if (name === "/roll") {
       const expression = parts[1];
       if (!expression) {
@@ -118,7 +127,7 @@ export function ChatLog({ title = "Chat e logs", className = "" }: { title?: str
 }
 
 function ChatMessageCard({ log }: { log: LogEntry }) {
-  const Icon = log.kind === "roll" ? Dice5 : log.kind === "damage" ? Swords : log.kind === "healing" ? HeartPulse : log.kind === "error" ? AlertTriangle : ShieldAlert;
+  const Icon = log.kind === "roll" ? Dice5 : log.kind === "damage" || log.kind === "action" ? Swords : log.kind === "healing" ? HeartPulse : log.kind === "error" ? AlertTriangle : ShieldAlert;
 
   return (
     <article
@@ -127,6 +136,7 @@ function ChatMessageCard({ log }: { log: LogEntry }) {
         log.kind === "roll" && "border-arcane/40",
         log.kind === "damage" && "border-enemy/45",
         log.kind === "healing" && "border-ally/40",
+        log.kind === "action" && "border-antique/45 bg-antique/5",
         log.kind === "error" && "border-enemy/60 bg-enemy/10",
         log.kind === "system" && "border-antique/25",
         log.kind === "message" && "border-white/10",

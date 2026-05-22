@@ -86,6 +86,7 @@ export const initialSessionState: SessionState = {
   actors: initialActors,
   tokens: initialTokens,
   logs: initialLogs,
+  actionHistory: [],
   selectedTokenId: initialTokens[0]?.id ?? null,
   combat: {
     active: false,

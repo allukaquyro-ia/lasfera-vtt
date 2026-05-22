@@ -14,6 +14,7 @@ import {
   rollSavingThrow,
   rollSkillCheck,
 } from "@/lib/rules";
+import type { TableActionEvent, TableActionInput } from "@/types/actions";
 import type { CreatureInput, LogEntry, LogKind, SessionActor, SessionState } from "@/types/session";
 import type { AttributeKey, DiceRollResult, SkillKey } from "@/types/rules";
 
@@ -32,6 +33,8 @@ type SessionAction =
   | { type: "roll-save"; actorId: string; attribute: AttributeKey }
   | { type: "roll-basic-attack"; actorId: string }
   | { type: "roll-damage"; actorId: string }
+  | { type: "execute-table-action"; action: TableActionInput }
+  | { type: "pass-turn"; actorId: string }
   | { type: "create-creature"; creature: CreatureInput }
   | { type: "start-combat" }
   | { type: "next-turn" }
@@ -91,6 +94,27 @@ function clampHp(hp: number, maxHp: number) {
 
 function initiativeModifier(actor: SessionActor) {
   return calculateModifier(actor.attributeScores.dexterity);
+}
+
+function actionRollLines(label: string, result?: DiceRollResult) {
+  if (!result) return [];
+  return [
+    `${label}:`,
+    result.expression,
+    `Rolagem: ${result.rolls.join(" + ")} ${formatModifier(result.modifier)}`,
+    `Total: ${result.total}`,
+  ];
+}
+
+function advanceTurn(state: SessionState) {
+  if (!state.combat.active || state.combat.order.length === 0) {
+    return state.combat;
+  }
+
+  return {
+    ...state.combat,
+    turnIndex: (state.combat.turnIndex + 1) % state.combat.order.length,
+  };
 }
 
 function reducer(state: SessionState, action: SessionAction): SessionState {
@@ -234,6 +258,89 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
       if (!actor) return state;
       const result = rollDamage(actor.damageExpression);
       return addLog(state, rollLog(actor.name, "dano", result));
+    }
+    case "execute-table-action": {
+      const source = state.actors.find((actor) => actor.id === action.action.sourceActorId);
+      const target = state.actors.find((actor) => actor.id === action.action.targetActorId);
+      if (!source || !target) return state;
+
+      try {
+        const attackRoll = action.action.attackExpression ? rollDiceExpression(action.action.attackExpression) : undefined;
+        const effectExpression = action.action.damageExpression ?? action.action.healingExpression;
+        const effectRoll = effectExpression ? rollDiceExpression(effectExpression) : undefined;
+        const appliedDamage = action.action.damageExpression ? effectRoll?.total ?? 0 : undefined;
+        const appliedHealing = action.action.healingExpression ? effectRoll?.total ?? 0 : undefined;
+        const nextHp = clampHp(target.hp - (appliedDamage ?? 0) + (appliedHealing ?? 0), target.maxHp);
+        const conditionApplied = action.action.condition && !target.conditions.includes(action.action.condition);
+        const nextConditions = action.action.condition
+          ? conditionApplied
+            ? [...target.conditions, action.action.condition]
+            : target.conditions
+          : target.conditions;
+
+        const event: TableActionEvent = {
+          ...action.action,
+          id: nowId("action"),
+          attackRoll,
+          effectRoll,
+          appliedDamage,
+          appliedHealing,
+          timestamp: "agora",
+          logText: `${source.name} usou ${action.action.name} em ${target.name}.`,
+        };
+
+        const lines = [
+          ...actionRollLines("Ataque", attackRoll),
+          ...actionRollLines(appliedHealing !== undefined ? "Cura" : "Dano", effectRoll),
+          ...(appliedDamage !== undefined ? [`${target.name} sofreu ${appliedDamage} de dano.`, `HP: ${nextHp}/${target.maxHp}`] : []),
+          ...(appliedHealing !== undefined ? [`${target.name} recuperou ${appliedHealing} de HP.`, `HP: ${nextHp}/${target.maxHp}`] : []),
+          ...(action.action.condition ? [`Condição: ${action.action.condition}${conditionApplied ? " aplicada" : " já estava ativa"}.`] : []),
+        ];
+
+        return addLog(
+          {
+            ...state,
+            actors: state.actors.map((actor) => (actor.id === target.id ? { ...actor, hp: nextHp, conditions: nextConditions, status: nextConditions[0] ?? actor.status } : actor)),
+            actionHistory: [...state.actionHistory, event].slice(-100),
+          },
+          {
+            kind: "action",
+            user: source.name,
+            message: event.logText,
+            lines,
+          },
+        );
+      } catch (error) {
+        return addLog(state, {
+          kind: "error",
+          user: source.name,
+          message: `Não foi possível usar ${action.action.name}.`,
+          lines: [error instanceof Error ? error.message : "Erro inesperado na ação."],
+        });
+      }
+    }
+    case "pass-turn": {
+      const current = state.combat.order[state.combat.turnIndex];
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!state.combat.active || !current || current.actorId !== action.actorId || !actor) {
+        return addLog(state, {
+          kind: "error",
+          user: actor?.name,
+          message: "Não é o turno deste personagem.",
+        });
+      }
+
+      const combat = advanceTurn(state);
+      const next = combat.order[combat.turnIndex];
+      return addLog(
+        { ...state, combat },
+        {
+          kind: "system",
+          user: actor.name,
+          message: `${actor.name} passou o turno.`,
+          lines: next ? [`Turno atual: ${next.name}.`] : undefined,
+        },
+      );
     }
     case "create-creature": {
       const id = nowId("creature");
