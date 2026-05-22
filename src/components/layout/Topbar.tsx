@@ -1,4 +1,4 @@
-import { Bell, Dice5, Search, Sparkles } from "lucide-react";
+import { Bell, Dice5, Search, Settings, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { campaign } from "@/data/campaign";
 
@@ -16,6 +16,10 @@ export function Topbar() {
         </div>
         <Button className="h-10 w-10 px-0" type="button" variant="ghost" aria-label="Notificações">
           <Bell size={17} />
+        </Button>
+        <Button href="/mestre" variant="ghost">
+          <Settings size={16} />
+          Mestre
         </Button>
         <Button href="/mesa" variant="secondary">
           <Dice5 size={16} />

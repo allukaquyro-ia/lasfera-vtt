@@ -42,9 +42,15 @@ export type SessionToken = {
   y: number;
 };
 
+export type LogKind = "message" | "command" | "roll" | "damage" | "healing" | "system" | "error";
+
 export type LogEntry = {
   id: string;
+  kind: LogKind;
+  user?: string;
+  command?: string;
   message: string;
+  lines?: string[];
   createdAt: string;
 };
 

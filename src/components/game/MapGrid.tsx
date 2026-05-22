@@ -4,8 +4,7 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/state/SessionContext";
 
 export function MapGrid() {
-  const { state, actorsById, selectedTokenActor, dispatch } = useSession();
-  const selectedToken = state.tokens.find((token) => token.id === state.selectedTokenId);
+  const { state, actorsById, dispatch } = useSession();
 
   return (
     <div className="relative min-h-[560px] overflow-hidden rounded-lg border border-antique/25 bg-[#15100f] rune-grid shadow-ember">
@@ -39,26 +38,6 @@ export function MapGrid() {
         );
       })}
       <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full border border-arcane/40 bg-arcane/15 blur-[1px]" />
-      {selectedToken && selectedTokenActor ? (
-        <div className="absolute bottom-6 left-6 w-72 rounded-lg border border-antique/30 bg-black/75 p-4 backdrop-blur">
-          <p className="section-title">Token selecionado</p>
-          <h3 className="mt-1 text-xl font-bold text-white">{selectedTokenActor.name}</h3>
-          <p className="text-sm text-stone-400">
-            {selectedTokenActor.side === "enemy" ? "Inimigo" : selectedTokenActor.side === "ally" ? "Aliado" : "Neutro"}
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-md border border-white/10 bg-white/[0.04] p-2 text-stone-200">
-              HP {selectedTokenActor.showHp ? `${selectedTokenActor.hp}/${selectedTokenActor.maxHp}` : "oculto"}
-            </div>
-            <div className="rounded-md border border-white/10 bg-white/[0.04] p-2 text-stone-200">
-              CA {selectedTokenActor.showArmor ? selectedTokenActor.armor : "oculta"}
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-stone-400">
-            Condições: {selectedTokenActor.conditions.length ? selectedTokenActor.conditions.join(", ") : "nenhuma"}
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, useReducer } from "react";
 import { defaultCreatureRules, initialSessionState } from "@/data/session";
-import { formatRollResult, rollDiceExpression } from "@/lib/dice";
+import { rollDiceExpression } from "@/lib/dice";
 import {
   calculateModifier,
   calculateProficiencyBonus,
@@ -14,8 +14,8 @@ import {
   rollSavingThrow,
   rollSkillCheck,
 } from "@/lib/rules";
-import type { CreatureInput, SessionActor, SessionState } from "@/types/session";
-import type { AttributeKey, SkillKey } from "@/types/rules";
+import type { CreatureInput, LogEntry, LogKind, SessionActor, SessionState } from "@/types/session";
+import type { AttributeKey, DiceRollResult, SkillKey } from "@/types/rules";
 
 type SessionAction =
   | { type: "select-token"; tokenId: string }
@@ -23,9 +23,10 @@ type SessionAction =
   | { type: "adjust-hp"; actorId: string; delta: number }
   | { type: "toggle-online"; actorId: string }
   | { type: "toggle-condition"; actorId: string; condition: string }
-  | { type: "apply-damage"; actorId: string; amount: number }
-  | { type: "apply-healing"; actorId: string; amount: number }
-  | { type: "roll-expression"; actorId?: string; expression: string; label?: string }
+  | { type: "select-actor"; actorId: string }
+  | { type: "apply-damage"; actorId: string; amount: number; user?: string; command?: string }
+  | { type: "apply-healing"; actorId: string; amount: number; user?: string; command?: string }
+  | { type: "roll-expression"; actorId?: string; expression: string; label?: string; user?: string; command?: string }
   | { type: "roll-attribute"; actorId: string; attribute: AttributeKey }
   | { type: "roll-skill"; actorId: string; skill: SkillKey }
   | { type: "roll-save"; actorId: string; attribute: AttributeKey }
@@ -36,7 +37,7 @@ type SessionAction =
   | { type: "next-turn" }
   | { type: "previous-turn" }
   | { type: "end-combat" }
-  | { type: "add-log"; message: string };
+  | { type: "add-log"; message: string; kind?: LogKind; user?: string; command?: string; lines?: string[] };
 
 type SessionContextValue = {
   state: SessionState;
@@ -51,10 +52,36 @@ function nowId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function addLog(state: SessionState, message: string): SessionState {
+type LogInput = string | Omit<LogEntry, "id" | "createdAt">;
+
+function addLog(state: SessionState, input: LogInput): SessionState {
+  const entry = typeof input === "string" ? { kind: "system" as const, message: input } : input;
+
   return {
     ...state,
-    logs: [{ id: nowId("log"), message, createdAt: "agora" }, ...state.logs].slice(0, 80),
+    logs: [...state.logs, { ...entry, id: nowId("log"), createdAt: "agora" }].slice(-100),
+  };
+}
+
+function formatModifier(modifier: number) {
+  if (modifier === 0) return "+ 0";
+  return `${modifier > 0 ? "+" : "-"} ${Math.abs(modifier)}`;
+}
+
+function rollLog(actorName: string, type: string, result: DiceRollResult, command?: string, user?: string): Omit<LogEntry, "id" | "createdAt"> {
+  const criticalLine = result.isCritical ? "Crítico natural 20." : result.isFumble ? "Falha crítica natural 1." : undefined;
+
+  return {
+    kind: "roll",
+    user: user ?? actorName,
+    command,
+    message: `${actorName} rolou ${type}.`,
+    lines: [
+      result.expression,
+      `Rolagem: ${result.rolls.join(" + ")} ${formatModifier(result.modifier)}`,
+      `Total: ${result.total}`,
+      ...(criticalLine ? [criticalLine] : []),
+    ],
   };
 }
 
@@ -70,6 +97,10 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
     case "select-token":
       return { ...state, selectedTokenId: action.tokenId };
+    case "select-actor": {
+      const token = state.tokens.find((item) => item.actorId === action.actorId);
+      return token ? { ...state, selectedTokenId: token.id } : state;
+    }
     case "set-hp": {
       const actor = state.actors.find((item) => item.id === action.actorId);
       if (!actor) return state;
@@ -79,7 +110,7 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           ...state,
           actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, hp: nextHp } : item)),
         },
-        `${actor.name} teve HP ajustado para ${nextHp}/${actor.maxHp}.`,
+        { kind: "system", message: `${actor.name} teve HP ajustado para ${nextHp}/${actor.maxHp}.` },
       );
     }
     case "adjust-hp": {
@@ -91,7 +122,7 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           ...state,
           actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, hp: nextHp } : item)),
         },
-        `${actor.name} teve HP alterado para ${nextHp}/${actor.maxHp}.`,
+        { kind: "system", message: `${actor.name} teve HP alterado para ${nextHp}/${actor.maxHp}.` },
       );
     }
     case "toggle-online": {
@@ -102,7 +133,7 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           ...state,
           actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, online: !item.online } : item)),
         },
-        `${actor.name} ficou ${actor.online ? "offline" : "online"}.`,
+        { kind: "system", message: `${actor.name} ficou ${actor.online ? "offline" : "online"}.` },
       );
     }
     case "toggle-condition": {
@@ -117,7 +148,7 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           ...state,
           actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, conditions: nextConditions, status: nextConditions[0] ?? "Pronto" } : item)),
         },
-        `${action.condition} ${hasCondition ? "removida de" : "aplicada em"} ${actor.name}.`,
+        { kind: "system", message: `${action.condition} ${hasCondition ? "removida de" : "aplicada em"} ${actor.name}.` },
       );
     }
     case "apply-damage": {
@@ -130,7 +161,13 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           ...state,
           actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, hp: nextHp } : item)),
         },
-        `${actor.name} sofreu ${amount} de dano. HP: ${nextHp}/${actor.maxHp}.`,
+        {
+          kind: "damage",
+          user: action.user,
+          command: action.command,
+          message: `${actor.name} sofreu ${amount} de dano.`,
+          lines: [`HP: ${nextHp}/${actor.maxHp}`],
+        },
       );
     }
     case "apply-healing": {
@@ -143,48 +180,60 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           ...state,
           actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, hp: nextHp } : item)),
         },
-        `${actor.name} recuperou ${amount} de HP. HP: ${nextHp}/${actor.maxHp}.`,
+        {
+          kind: "healing",
+          user: action.user,
+          command: action.command,
+          message: `${actor.name} recuperou ${amount} de HP.`,
+          lines: [`HP: ${nextHp}/${actor.maxHp}`],
+        },
       );
     }
     case "roll-expression": {
       try {
         const actor = action.actorId ? state.actors.find((item) => item.id === action.actorId) : null;
         const result = rollDiceExpression(action.expression);
-        return addLog(state, formatRollResult(actor?.name ?? "Mesa", action.label ?? "rolagem", result));
+        return addLog(state, rollLog(actor?.name ?? "Mesa", action.label ?? "rolagem", result, action.command, action.user));
       } catch (error) {
-        return addLog(state, `Comando inválido: ${error instanceof Error ? error.message : "não foi possível rolar os dados."}`);
+        return addLog(state, {
+          kind: "error",
+          user: action.user,
+          command: action.command,
+          message: "Comando inválido.",
+          lines: [error instanceof Error ? error.message : "Não foi possível rolar os dados."],
+        });
       }
     }
     case "roll-attribute": {
       const actor = state.actors.find((item) => item.id === action.actorId);
       if (!actor) return state;
       const result = rollAttributeCheck(actor.attributeScores, action.attribute);
-      return addLog(state, formatRollResult(actor.name, `atributo ${getAttributeDefinition(action.attribute).label}`, result));
+      return addLog(state, rollLog(actor.name, `atributo ${getAttributeDefinition(action.attribute).label}`, result));
     }
     case "roll-skill": {
       const actor = state.actors.find((item) => item.id === action.actorId);
       if (!actor) return state;
       const skill = getSkillDefinition(action.skill);
       const result = rollSkillCheck(actor.attributeScores, actor.proficiencyBonus, actor.skillProficiencies, action.skill);
-      return addLog(state, formatRollResult(actor.name, `perícia ${skill.label}`, result));
+      return addLog(state, rollLog(actor.name, `perícia ${skill.label}`, result));
     }
     case "roll-save": {
       const actor = state.actors.find((item) => item.id === action.actorId);
       if (!actor) return state;
       const result = rollSavingThrow(actor.attributeScores, actor.proficiencyBonus, actor.savingThrowProficiencies, action.attribute);
-      return addLog(state, formatRollResult(actor.name, `resistência ${getAttributeDefinition(action.attribute).label}`, result));
+      return addLog(state, rollLog(actor.name, `resistência ${getAttributeDefinition(action.attribute).label}`, result));
     }
     case "roll-basic-attack": {
       const actor = state.actors.find((item) => item.id === action.actorId);
       if (!actor) return state;
       const result = rollBasicAttack(actor.attributeScores, actor.proficiencyBonus);
-      return addLog(state, formatRollResult(actor.name, "ataque básico", result));
+      return addLog(state, rollLog(actor.name, "ataque básico", result));
     }
     case "roll-damage": {
       const actor = state.actors.find((item) => item.id === action.actorId);
       if (!actor) return state;
       const result = rollDamage(actor.damageExpression);
-      return addLog(state, formatRollResult(actor.name, "dano", result));
+      return addLog(state, rollLog(actor.name, "dano", result));
     }
     case "create-creature": {
       const id = nowId("creature");
@@ -231,7 +280,7 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           tokens: [...state.tokens, token],
           selectedTokenId: token.id,
         },
-        `${creature.name} criada e spawnada como ${creature.side === "enemy" ? "inimigo" : "aliado"}.`,
+        { kind: "system", message: `${creature.name} criada e spawnada como ${creature.side === "enemy" ? "inimigo" : "aliado"}.` },
       );
     }
     case "start-combat": {
@@ -245,30 +294,36 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         })
         .sort((a, b) => b.total - a.total || b.dexterity - a.dexterity);
 
-      const initiativeLogs = order.map((entry) => `${entry.name} rolou iniciativa: 1d20 + ${entry.modifier} = ${entry.total}.`).join(" ");
+      const initiativeLogs = order
+        .map((entry) => `${entry.name} rolou iniciativa: 1d20 ${formatModifier(entry.modifier)} = ${entry.total}.`)
+        .join(" ");
 
       return addLog(
         {
           ...state,
           combat: { active: true, turnIndex: 0, order },
         },
-        `${initiativeLogs} Turno atual: ${order[0]?.name ?? "nenhum participante"}.`,
+        {
+          kind: "system",
+          message: "Combate iniciado.",
+          lines: [initiativeLogs, `Turno atual: ${order[0]?.name ?? "nenhum participante"}.`],
+        },
       );
     }
     case "next-turn": {
       if (!state.combat.active || state.combat.order.length === 0) return state;
       const turnIndex = (state.combat.turnIndex + 1) % state.combat.order.length;
-      return addLog({ ...state, combat: { ...state.combat, turnIndex } }, `Turno avancou para ${state.combat.order[turnIndex].name}.`);
+      return addLog({ ...state, combat: { ...state.combat, turnIndex } }, { kind: "system", message: `Turno avançou para ${state.combat.order[turnIndex].name}.` });
     }
     case "previous-turn": {
       if (!state.combat.active || state.combat.order.length === 0) return state;
       const turnIndex = (state.combat.turnIndex - 1 + state.combat.order.length) % state.combat.order.length;
-      return addLog({ ...state, combat: { ...state.combat, turnIndex } }, `Turno voltou para ${state.combat.order[turnIndex].name}.`);
+      return addLog({ ...state, combat: { ...state.combat, turnIndex } }, { kind: "system", message: `Turno voltou para ${state.combat.order[turnIndex].name}.` });
     }
     case "end-combat":
-      return addLog({ ...state, combat: { active: false, turnIndex: 0, order: [] } }, "Combate encerrado.");
+      return addLog({ ...state, combat: { active: false, turnIndex: 0, order: [] } }, { kind: "system", message: "Combate encerrado." });
     case "add-log":
-      return addLog(state, action.message);
+      return addLog(state, { kind: action.kind ?? "message", message: action.message, user: action.user, command: action.command, lines: action.lines });
     default:
       return state;
   }

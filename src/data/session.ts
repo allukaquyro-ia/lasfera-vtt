@@ -77,6 +77,7 @@ export const initialTokens: SessionToken[] = initialActors.map((actor, index) =>
 
 const initialLogs: LogEntry[] = logs.map((message, index) => ({
   id: `log-${index}`,
+  kind: "system",
   message,
   createdAt: "agora",
 }));
