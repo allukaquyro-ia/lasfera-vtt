@@ -7,10 +7,9 @@ import { InitiativePanel } from "@/components/game/InitiativePanel";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { conditionNames } from "@/data/conditions";
 import { useSession } from "@/state/SessionContext";
 import type { CreatureInput } from "@/types/session";
-
-const quickConditions = ["Sangrando", "Atordoado", "Oculto", "Marcado"];
 
 const initialCreature: CreatureInput = {
   name: "",
@@ -75,7 +74,7 @@ export default function MestrePage() {
                   </div>
                   <p className="text-sm text-stone-400">{actor.className}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {quickConditions.map((condition) => (
+                    {conditionNames.slice(0, 6).map((condition) => (
                       <button
                         key={condition}
                         className={actor.conditions.includes(condition) ? "rounded-full border border-antique/50 bg-antique/15 px-2 py-0.5 text-[11px] text-antique" : "rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-stone-500"}

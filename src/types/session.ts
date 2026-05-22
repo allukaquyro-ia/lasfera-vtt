@@ -1,4 +1,5 @@
 import type { CharacterSide } from "@/data/characters";
+import type { AttributeScores, SavingThrowProficiencies, SkillProficiencies } from "@/types/rules";
 
 export type ActorKind = "character" | "creature";
 export type TokenSide = CharacterSide;
@@ -21,6 +22,11 @@ export type SessionActor = {
   showArmor: boolean;
   element?: string;
   attributes?: Record<string, number>;
+  attributeScores: AttributeScores;
+  proficiencyBonus: number;
+  skillProficiencies: SkillProficiencies;
+  savingThrowProficiencies: SavingThrowProficiencies;
+  damageExpression: string;
   spells?: string[];
   inventory?: string[];
   blessings?: string[];
@@ -48,6 +54,7 @@ export type InitiativeEntry = {
   total: number;
   roll: number;
   modifier: number;
+  dexterity: number;
 };
 
 export type CombatState = {

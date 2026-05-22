@@ -1,8 +1,21 @@
 "use client";
 
 import { createContext, useContext, useMemo, useReducer } from "react";
-import { initialSessionState } from "@/data/session";
+import { defaultCreatureRules, initialSessionState } from "@/data/session";
+import { formatRollResult, rollDiceExpression } from "@/lib/dice";
+import {
+  calculateModifier,
+  calculateProficiencyBonus,
+  getAttributeDefinition,
+  getSkillDefinition,
+  rollAttributeCheck,
+  rollBasicAttack,
+  rollDamage,
+  rollSavingThrow,
+  rollSkillCheck,
+} from "@/lib/rules";
 import type { CreatureInput, SessionActor, SessionState } from "@/types/session";
+import type { AttributeKey, SkillKey } from "@/types/rules";
 
 type SessionAction =
   | { type: "select-token"; tokenId: string }
@@ -10,6 +23,14 @@ type SessionAction =
   | { type: "adjust-hp"; actorId: string; delta: number }
   | { type: "toggle-online"; actorId: string }
   | { type: "toggle-condition"; actorId: string; condition: string }
+  | { type: "apply-damage"; actorId: string; amount: number }
+  | { type: "apply-healing"; actorId: string; amount: number }
+  | { type: "roll-expression"; actorId?: string; expression: string; label?: string }
+  | { type: "roll-attribute"; actorId: string; attribute: AttributeKey }
+  | { type: "roll-skill"; actorId: string; skill: SkillKey }
+  | { type: "roll-save"; actorId: string; attribute: AttributeKey }
+  | { type: "roll-basic-attack"; actorId: string }
+  | { type: "roll-damage"; actorId: string }
   | { type: "create-creature"; creature: CreatureInput }
   | { type: "start-combat" }
   | { type: "next-turn" }
@@ -42,11 +63,7 @@ function clampHp(hp: number, maxHp: number) {
 }
 
 function initiativeModifier(actor: SessionActor) {
-  if (actor.attributes?.Agilidade) {
-    return actor.attributes.Agilidade;
-  }
-
-  return Math.max(0, Math.floor(actor.level / 2));
+  return calculateModifier(actor.attributeScores.dexterity);
 }
 
 function reducer(state: SessionState, action: SessionAction): SessionState {
@@ -103,14 +120,81 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         `${action.condition} ${hasCondition ? "removida de" : "aplicada em"} ${actor.name}.`,
       );
     }
+    case "apply-damage": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!actor) return state;
+      const amount = Number.isFinite(action.amount) ? Math.max(0, Math.floor(action.amount)) : 0;
+      const nextHp = clampHp(actor.hp - amount, actor.maxHp);
+      return addLog(
+        {
+          ...state,
+          actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, hp: nextHp } : item)),
+        },
+        `${actor.name} sofreu ${amount} de dano. HP: ${nextHp}/${actor.maxHp}.`,
+      );
+    }
+    case "apply-healing": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!actor) return state;
+      const amount = Number.isFinite(action.amount) ? Math.max(0, Math.floor(action.amount)) : 0;
+      const nextHp = clampHp(actor.hp + amount, actor.maxHp);
+      return addLog(
+        {
+          ...state,
+          actors: state.actors.map((item) => (item.id === action.actorId ? { ...item, hp: nextHp } : item)),
+        },
+        `${actor.name} recuperou ${amount} de HP. HP: ${nextHp}/${actor.maxHp}.`,
+      );
+    }
+    case "roll-expression": {
+      try {
+        const actor = action.actorId ? state.actors.find((item) => item.id === action.actorId) : null;
+        const result = rollDiceExpression(action.expression);
+        return addLog(state, formatRollResult(actor?.name ?? "Mesa", action.label ?? "rolagem", result));
+      } catch (error) {
+        return addLog(state, `Comando inválido: ${error instanceof Error ? error.message : "não foi possível rolar os dados."}`);
+      }
+    }
+    case "roll-attribute": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!actor) return state;
+      const result = rollAttributeCheck(actor.attributeScores, action.attribute);
+      return addLog(state, formatRollResult(actor.name, `atributo ${getAttributeDefinition(action.attribute).label}`, result));
+    }
+    case "roll-skill": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!actor) return state;
+      const skill = getSkillDefinition(action.skill);
+      const result = rollSkillCheck(actor.attributeScores, actor.proficiencyBonus, actor.skillProficiencies, action.skill);
+      return addLog(state, formatRollResult(actor.name, `perícia ${skill.label}`, result));
+    }
+    case "roll-save": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!actor) return state;
+      const result = rollSavingThrow(actor.attributeScores, actor.proficiencyBonus, actor.savingThrowProficiencies, action.attribute);
+      return addLog(state, formatRollResult(actor.name, `resistência ${getAttributeDefinition(action.attribute).label}`, result));
+    }
+    case "roll-basic-attack": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!actor) return state;
+      const result = rollBasicAttack(actor.attributeScores, actor.proficiencyBonus);
+      return addLog(state, formatRollResult(actor.name, "ataque básico", result));
+    }
+    case "roll-damage": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      if (!actor) return state;
+      const result = rollDamage(actor.damageExpression);
+      return addLog(state, formatRollResult(actor.name, "dano", result));
+    }
     case "create-creature": {
       const id = nowId("creature");
+      const creatureLevel = Math.max(1, action.creature.level);
       const creature: SessionActor = {
         id,
         kind: "creature",
         name: action.creature.name.trim() || "Criatura sem nome",
         className: action.creature.side === "enemy" ? "Inimigo invocado" : "Aliado invocado",
-        level: action.creature.level,
+        level: creatureLevel,
         hp: action.creature.hp,
         maxHp: action.creature.hp,
         armor: action.creature.armor,
@@ -120,6 +204,17 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         conditions: [],
         showHp: action.creature.showHp,
         showArmor: action.creature.showArmor,
+        ...defaultCreatureRules,
+        attributeScores: {
+          strength: 12 + Math.min(6, creatureLevel),
+          dexterity: 10 + Math.min(5, creatureLevel),
+          constitution: 12 + Math.min(6, creatureLevel),
+          intelligence: 10,
+          wisdom: 10,
+          charisma: 8,
+        },
+        proficiencyBonus: calculateProficiencyBonus(creatureLevel),
+        damageExpression: creatureLevel > 4 ? "2d6+3" : "1d6+2",
       };
       const token = {
         id: `token-${id}`,
@@ -145,17 +240,19 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         .filter((actor) => activeActorIds.has(actor.id))
         .map((actor) => {
           const modifier = initiativeModifier(actor);
-          const roll = Math.floor(Math.random() * 20) + 1;
-          return { actorId: actor.id, name: actor.name, total: roll + modifier, roll, modifier };
+          const result = rollDiceExpression(`1d20${modifier >= 0 ? `+${modifier}` : modifier}`);
+          return { actorId: actor.id, name: actor.name, total: result.total, roll: result.rolls[0], modifier, dexterity: actor.attributeScores.dexterity };
         })
-        .sort((a, b) => b.total - a.total);
+        .sort((a, b) => b.total - a.total || b.dexterity - a.dexterity);
+
+      const initiativeLogs = order.map((entry) => `${entry.name} rolou iniciativa: 1d20 + ${entry.modifier} = ${entry.total}.`).join(" ");
 
       return addLog(
         {
           ...state,
           combat: { active: true, turnIndex: 0, order },
         },
-        `Combate iniciado. Primeiro turno: ${order[0]?.name ?? "nenhum participante"}.`,
+        `${initiativeLogs} Turno atual: ${order[0]?.name ?? "nenhum participante"}.`,
       );
     }
     case "next-turn": {

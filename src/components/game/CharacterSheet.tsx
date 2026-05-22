@@ -1,13 +1,16 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Tabs } from "@/components/ui/Tabs";
+import { conditions } from "@/data/conditions";
+import { attributes, calculateModifiers, skills } from "@/lib/rules";
 import { useSession } from "@/state/SessionContext";
 import type { SessionActor } from "@/types/session";
 
 export function CharacterSheet({ id }: { id: string }) {
-  const { actorsById } = useSession();
+  const { actorsById, dispatch } = useSession();
   const character = actorsById.get(id);
 
   if (!character) {
@@ -51,6 +54,9 @@ export function CharacterSheet({ id }: { id: string }) {
             <Info title="Elemento" value={character.element ?? "Sem elemento"} compact />
             <Info title="Jogador" value={character.player ?? "NPC"} compact />
           </div>
+          <div className="pt-2">
+            <QuickNumberActions actorId={character.id} />
+          </div>
         </div>
       </Card>
 
@@ -77,23 +83,108 @@ export function CharacterSheet({ id }: { id: string }) {
             },
             {
               label: "Atributos",
+              content: <AttributeGrid character={character} />,
+            },
+            {
+              label: "Combate",
               content: (
-                <div className="grid gap-3 md:grid-cols-3">
-                  {Object.entries(character.attributes ?? {}).map(([name, value]) => (
-                    <Info key={name} title={name} value={`+${value}`} />
-                  ))}
+                <div className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Button type="button" onClick={() => dispatch({ type: "roll-basic-attack", actorId: character.id })}>Ataque básico</Button>
+                    <Button type="button" variant="secondary" onClick={() => dispatch({ type: "roll-damage", actorId: character.id })}>Rolar dano</Button>
+                  </div>
+                  <List items={[`HP ${character.hp}/${character.maxHp}`, `CA ${character.armor}`, `Bônus de proficiência +${character.proficiencyBonus}`, `Dano ${character.damageExpression}`]} />
                 </div>
               ),
             },
-            { label: "Combate", content: <List items={[`HP ${character.hp}/${character.maxHp}`, `CA ${character.armor}`, "Iniciativa +3", "Ataque principal +6"]} /> },
             { label: "Magias", content: <List items={character.spells ?? []} /> },
             { label: "Inventário", content: <List items={character.inventory ?? []} /> },
             { label: "Elementos", content: <List items={[character.element ?? "Sem elemento", "Afinidade secundaria bloqueada", "Ressonancia instavel"]} /> },
             { label: "Bênçãos", content: <List items={character.blessings ?? []} /> },
-            { label: "Anotações", content: <p className="rounded-lg border border-white/10 bg-black/20 p-4 text-stone-200">{character.notes}</p> },
+            {
+              label: "Anotações",
+              content: (
+                <div className="space-y-4">
+                  <p className="rounded-lg border border-white/10 bg-black/20 p-4 text-stone-200">{character.notes}</p>
+                  <ConditionActions actorId={character.id} activeConditions={character.conditions} />
+                </div>
+              ),
+            },
           ]}
         />
       </Card>
+    </div>
+  );
+}
+
+function AttributeGrid({ character }: { character: SessionActor }) {
+  const { dispatch } = useSession();
+  const modifiers = calculateModifiers(character.attributeScores);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 md:grid-cols-3">
+        {attributes.map((attribute) => (
+          <div key={attribute.key} className="rounded-lg border border-white/10 bg-black/25 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-stone-400">{attribute.shortLabel}</p>
+                <p className="mt-1 text-lg font-semibold text-white">{character.attributeScores[attribute.key]}</p>
+                <p className="text-sm text-antique">{modifiers[attribute.key] >= 0 ? "+" : ""}{modifiers[attribute.key]}</p>
+              </div>
+              <div className="grid gap-2">
+                <Button className="h-8 px-2 text-xs" type="button" variant="ghost" onClick={() => dispatch({ type: "roll-attribute", actorId: character.id, attribute: attribute.key })}>Teste</Button>
+                <Button className="h-8 px-2 text-xs" type="button" variant="ghost" onClick={() => dispatch({ type: "roll-save", actorId: character.id, attribute: attribute.key })}>Resist.</Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <p className="section-title mb-3">Perícias principais</p>
+        <div className="grid gap-2 md:grid-cols-2">
+          {skills.slice(0, 8).map((skill) => (
+            <Button key={skill.key} className="justify-between" type="button" variant={character.skillProficiencies[skill.key] ? "secondary" : "ghost"} onClick={() => dispatch({ type: "roll-skill", actorId: character.id, skill: skill.key })}>
+              {skill.label}
+              <span className="text-xs text-stone-400">{skill.attribute}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickNumberActions({ actorId }: { actorId: string }) {
+  const { dispatch } = useSession();
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Button type="button" variant="danger" onClick={() => dispatch({ type: "apply-damage", actorId, amount: 5 })}>Dano 5</Button>
+      <Button type="button" variant="secondary" onClick={() => dispatch({ type: "apply-healing", actorId, amount: 5 })}>Cura 5</Button>
+    </div>
+  );
+}
+
+function ConditionActions({ actorId, activeConditions }: { actorId: string; activeConditions: string[] }) {
+  const { dispatch } = useSession();
+
+  return (
+    <div>
+      <p className="section-title mb-3">Condições padronizadas</p>
+      <div className="grid gap-2 md:grid-cols-2">
+        {conditions.map((condition) => (
+          <button
+            key={condition.name}
+            className={activeConditions.includes(condition.name) ? "rounded-md border border-antique/50 bg-antique/15 p-3 text-left text-sm text-antique" : "rounded-md border border-white/10 bg-black/25 p-3 text-left text-sm text-stone-300"}
+            onClick={() => dispatch({ type: "toggle-condition", actorId, condition: condition.name })}
+            type="button"
+          >
+            <span className="font-semibold">{condition.name}</span>
+            <span className="mt-1 block text-xs text-stone-500">{condition.description}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

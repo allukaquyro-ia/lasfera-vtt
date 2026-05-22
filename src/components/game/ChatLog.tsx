@@ -9,9 +9,54 @@ export function ChatLog({ title = "Chat e logs", className = "" }: { title?: str
   const [message, setMessage] = useState("");
   const { state, dispatch } = useSession();
 
+  function findActorByCommandName(rawName: string) {
+    return state.actors.find((actor) => actor.name.toLowerCase() === rawName.trim().toLowerCase());
+  }
+
+  function runCommand(command: string) {
+    const parts = command.trim().split(/\s+/);
+    const name = parts[0]?.toLowerCase();
+
+    if (name === "/d20") {
+      dispatch({ type: "roll-expression", expression: "1d20", label: "d20" });
+      return;
+    }
+
+    if (name === "/roll") {
+      const expression = parts[1];
+      if (!expression) {
+        dispatch({ type: "add-log", message: "Comando inválido. Use /roll 1d20+5." });
+        return;
+      }
+      dispatch({ type: "roll-expression", expression, label: "rolagem livre" });
+      return;
+    }
+
+    if (name === "/dano" || name === "/cura") {
+      const amount = Number(parts.at(-1));
+      const actorName = parts.slice(1, -1).join(" ");
+      const actor = findActorByCommandName(actorName);
+
+      if (!actor || !Number.isFinite(amount)) {
+        dispatch({ type: "add-log", message: `Comando inválido. Use ${name} nome valor.` });
+        return;
+      }
+
+      dispatch({ type: name === "/dano" ? "apply-damage" : "apply-healing", actorId: actor.id, amount });
+      return;
+    }
+
+    dispatch({ type: "add-log", message: "Comando não reconhecido. Use /roll 1d20+5, /d20, /dano nome valor ou /cura nome valor." });
+  }
+
   function sendMessage() {
     const trimmed = message.trim();
     if (!trimmed) return;
+    if (trimmed.startsWith("/")) {
+      runCommand(trimmed);
+      setMessage("");
+      return;
+    }
     dispatch({ type: "add-log", message: `Mesa: ${trimmed}` });
     setMessage("");
   }
