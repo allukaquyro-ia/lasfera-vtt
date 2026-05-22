@@ -1,6 +1,8 @@
+"use client";
+
 import { BookOpen, Dice5, LayoutDashboard, Shield, Swords, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { characters } from "@/data/characters";
+import { useSession } from "@/state/SessionContext";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -11,6 +13,9 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const { state } = useSession();
+  const characters = state.actors.filter((actor) => actor.kind === "character");
+
   return (
     <aside className="hidden min-h-screen w-64 shrink-0 border-r border-white/10 bg-black/45 px-4 py-5 lg:block">
       <div className="mb-8 flex items-center gap-3">

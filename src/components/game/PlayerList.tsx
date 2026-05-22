@@ -1,8 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { characters } from "@/data/characters";
+import { useSession } from "@/state/SessionContext";
 
 export function PlayerList() {
+  const { state } = useSession();
+  const characters = state.actors.filter((actor) => actor.kind === "character");
+
   return (
     <div className="space-y-3">
       {characters.map((character) => (

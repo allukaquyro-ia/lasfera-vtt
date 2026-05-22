@@ -1,8 +1,21 @@
+"use client";
+
+import { useState } from "react";
 import { Dice5, Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { logs } from "@/data/campaign";
+import { useSession } from "@/state/SessionContext";
 
 export function ChatLog({ title = "Chat e logs", className = "" }: { title?: string; className?: string }) {
+  const [message, setMessage] = useState("");
+  const { state, dispatch } = useSession();
+
+  function sendMessage() {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+    dispatch({ type: "add-log", message: `Mesa: ${trimmed}` });
+    setMessage("");
+  }
+
   return (
     <div className={`flex h-full min-h-[420px] flex-col ${className}`}>
       <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
@@ -13,10 +26,10 @@ export function ChatLog({ title = "Chat e logs", className = "" }: { title?: str
         <Dice5 className="text-antique" size={18} />
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-        {logs.map((log) => (
-          <div key={log} className="rounded-md border border-white/10 bg-black/30 p-3 text-sm text-stone-200">
+        {state.logs.map((log) => (
+          <div key={log.id} className="rounded-md border border-white/10 bg-black/30 p-3 text-sm text-stone-200">
             <span className="mr-2 text-antique">•</span>
-            <span>{log}</span>
+            <span>{log.message}</span>
           </div>
         ))}
       </div>
@@ -24,8 +37,15 @@ export function ChatLog({ title = "Chat e logs", className = "" }: { title?: str
         <input
           className="field"
           placeholder="Mensagem ou rolagem"
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              sendMessage();
+            }
+          }}
         />
-        <Button className="h-10 w-10 px-0" type="button" aria-label="Enviar">
+        <Button className="h-10 w-10 px-0" type="button" aria-label="Enviar" onClick={sendMessage}>
           <Send size={16} />
         </Button>
       </div>
