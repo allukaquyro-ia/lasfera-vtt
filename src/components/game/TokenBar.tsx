@@ -3,9 +3,11 @@
 import { Shield, Skull, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/state/SessionContext";
+import { useUi } from "@/state/UiContext";
 
 export function TokenBar() {
   const { state, actorsById, dispatch } = useSession();
+  const { openCharacterSheet } = useUi();
 
   if (state.combat.active && state.combat.order.length) {
     return (
@@ -22,7 +24,10 @@ export function TokenBar() {
                 "flex min-w-44 items-center gap-3 rounded-md border border-white/10 bg-white/[0.045] px-3 py-2 text-left transition hover:border-antique/40",
                 isCurrent && "border-antique/70 bg-antique/15 shadow-ember",
               )}
-              onClick={() => token && dispatch({ type: "select-token", tokenId: token.id })}
+              onClick={() => {
+                if (token) dispatch({ type: "select-token", tokenId: token.id });
+                if (actor?.kind === "character") openCharacterSheet(actor.id);
+              }}
               type="button"
             >
               <span className={cn("grid h-9 w-9 place-items-center rounded-md border text-sm font-bold", isCurrent ? "border-antique bg-ruby text-white" : "border-white/10 bg-black/30 text-antique")}>
@@ -56,7 +61,10 @@ export function TokenBar() {
               "flex min-w-36 items-center gap-3 rounded-md border border-white/10 bg-white/[0.045] px-3 py-2 text-left transition hover:border-antique/40",
               state.selectedTokenId === token.id && "border-antique/70 bg-antique/10",
             )}
-            onClick={() => dispatch({ type: "select-token", tokenId: token.id })}
+            onClick={() => {
+              dispatch({ type: "select-token", tokenId: token.id });
+              if (actor?.kind === "character") openCharacterSheet(actor.id);
+            }}
             type="button"
           >
             <span

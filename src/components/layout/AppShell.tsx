@@ -6,9 +6,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-black/15">
       <div className="flex min-h-screen">
         <Sidebar />
-        <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="min-w-0 flex-1 overflow-x-hidden">
           <Topbar />
-          <main className="mx-auto w-full max-w-[1680px] px-4 py-5 lg:px-6">{children}</main>
+          <main className="mx-auto w-full max-w-[1680px] px-3 py-4 sm:px-4 lg:px-6">{children}</main>
         </div>
       </div>
     </div>

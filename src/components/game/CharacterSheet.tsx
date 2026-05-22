@@ -9,9 +9,10 @@ import { conditions } from "@/data/conditions";
 import { lasferaSheets } from "@/data/lasfera";
 import { attributes, calculateModifiers, skills } from "@/lib/rules";
 import { useSession } from "@/state/SessionContext";
+import { cn } from "@/lib/utils";
 import type { SessionActor } from "@/types/session";
 
-export function CharacterSheet({ id }: { id: string }) {
+export function CharacterSheet({ id, compact = false }: { id: string; compact?: boolean }) {
   const { state, actorsById, dispatch } = useSession();
   const character = actorsById.get(id);
 
@@ -29,8 +30,8 @@ export function CharacterSheet({ id }: { id: string }) {
   const isOwnTurn = state.combat.active && currentTurn?.actorId === character.id;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
-      <Card className="xl:min-h-[calc(100vh-7.5rem)]">
+    <div className={cn("grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]", compact && "xl:grid-cols-[300px_minmax(0,1fr)]")}>
+      <Card className={compact ? "" : "xl:min-h-[calc(100vh-7.5rem)]"}>
         <div className="mb-5 grid h-24 w-24 place-items-center rounded-lg border border-antique/35 bg-ruby/30 text-4xl font-bold text-white shadow-ember">
           {character.name.slice(0, 1)}
         </div>
@@ -74,7 +75,7 @@ export function CharacterSheet({ id }: { id: string }) {
         </div>
       </Card>
 
-      <Card className="min-h-[620px]">
+      <Card className={compact ? "min-h-[520px]" : "min-h-[620px]"}>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="section-title">Ficha de Lasfera</p>
@@ -110,16 +111,37 @@ export function CharacterSheet({ id }: { id: string }) {
             { label: "Bênçãos", content: sheet ? <BlessingsPanel sheet={sheet} actorName={character.name} /> : <List items={character.blessings ?? []} /> },
             {
               label: "Anotações",
-              content: (
-                <div className="space-y-4">
-                  <p className="rounded-lg border border-white/10 bg-black/20 p-4 text-stone-200">{sheet?.notes ?? character.notes}</p>
-                  <ConditionActions actorId={character.id} activeConditions={character.conditions} />
-                </div>
-              ),
+              content: <SheetNotesTab actorId={character.id} fallback={sheet?.notes ?? character.notes ?? ""} activeConditions={character.conditions} />,
             },
           ]}
         />
       </Card>
+    </div>
+  );
+}
+
+function SheetNotesTab({ actorId, fallback, activeConditions }: { actorId: string; fallback: string; activeConditions: string[] }) {
+  const { state, dispatch } = useSession();
+  const value = state.sheetNotes[actorId] ?? fallback;
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-3">
+        <label className="block">
+          <span className="section-title">Anotações da sessão</span>
+          <textarea
+            className="mt-3 min-h-80 w-full resize-y rounded-lg border border-white/10 bg-black/30 p-4 text-sm leading-6 text-stone-100 outline-none transition placeholder:text-stone-600 focus:border-antique/60"
+            value={value}
+            onChange={(event) => dispatch({ type: "update-sheet-note", actorId, value: event.target.value })}
+            placeholder="Digite anotações, pistas, lembretes, gastos, suspeitas..."
+          />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={() => dispatch({ type: "save-sheet-note", actorId })}>Salvar anotação</Button>
+          <Button type="button" variant="ghost" onClick={() => dispatch({ type: "update-sheet-note", actorId, value: fallback })}>Restaurar mock</Button>
+        </div>
+      </div>
+      <ConditionActions actorId={actorId} activeConditions={activeConditions} />
     </div>
   );
 }

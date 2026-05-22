@@ -20,6 +20,7 @@ import type { AttributeKey, DiceRollResult, SkillKey } from "@/types/rules";
 
 type SessionAction =
   | { type: "select-token"; tokenId: string }
+  | { type: "clear-selection" }
   | { type: "set-hp"; actorId: string; hp: number }
   | { type: "adjust-hp"; actorId: string; delta: number }
   | { type: "toggle-online"; actorId: string }
@@ -35,6 +36,8 @@ type SessionAction =
   | { type: "roll-damage"; actorId: string }
   | { type: "execute-table-action"; action: TableActionInput }
   | { type: "pass-turn"; actorId: string }
+  | { type: "update-sheet-note"; actorId: string; value: string }
+  | { type: "save-sheet-note"; actorId: string }
   | { type: "create-creature"; creature: CreatureInput }
   | { type: "start-combat" }
   | { type: "next-turn" }
@@ -121,6 +124,8 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
     case "select-token":
       return { ...state, selectedTokenId: action.tokenId };
+    case "clear-selection":
+      return { ...state, selectedTokenId: null };
     case "select-actor": {
       const token = state.tokens.find((item) => item.actorId === action.actorId);
       return token ? { ...state, selectedTokenId: token.id } : state;
@@ -341,6 +346,16 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
           lines: next ? [`Turno atual: ${next.name}.`] : undefined,
         },
       );
+    }
+    case "update-sheet-note":
+      return { ...state, sheetNotes: { ...state.sheetNotes, [action.actorId]: action.value } };
+    case "save-sheet-note": {
+      const actor = state.actors.find((item) => item.id === action.actorId);
+      return addLog(state, {
+        kind: "system",
+        user: actor?.name,
+        message: `${actor?.name ?? "Personagem"} atualizou anotações da ficha.`,
+      });
     }
     case "create-creature": {
       const id = nowId("creature");

@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { ChatLog } from "@/components/game/ChatLog";
+import { CharacterSheetDrawer } from "@/components/game/CharacterSheetDrawer";
 import { MapGrid } from "@/components/game/MapGrid";
 import { PlayerList } from "@/components/game/PlayerList";
 import { TokenBar } from "@/components/game/TokenBar";
@@ -35,6 +36,7 @@ export default function DashboardPage() {
           <ChatLog title="Chat e logs" />
         </Card>
       </div>
+      <CharacterSheetDrawer />
     </AppShell>
   );
 }

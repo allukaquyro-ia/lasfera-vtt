@@ -7,7 +7,11 @@ export function MapGrid() {
   const { state, actorsById, dispatch } = useSession();
 
   return (
-    <div className="relative min-h-[560px] overflow-hidden rounded-lg border border-antique/25 bg-[#15100f] rune-grid shadow-ember">
+    <div
+      className="relative min-h-[420px] overflow-hidden rounded-lg border border-antique/25 bg-[#15100f] shadow-ember rune-grid sm:min-h-[520px] xl:min-h-[calc(100vh-17rem)]"
+      onClick={() => dispatch({ type: "clear-selection" })}
+      role="presentation"
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(159,18,57,0.2),transparent_45%),linear-gradient(135deg,rgba(201,164,93,0.12),transparent_35%)]" />
       <div className="absolute left-6 top-6 rounded-md border border-antique/25 bg-black/55 px-3 py-2 text-xs uppercase tracking-[0.18em] text-antique">
         Mapa: Vale Vermelho
@@ -30,7 +34,10 @@ export function MapGrid() {
             )}
             style={{ left: `${token.x}%`, top: `${token.y}%` }}
             title={token.name}
-            onClick={() => dispatch({ type: "select-token", tokenId: token.id })}
+            onClick={(event) => {
+              event.stopPropagation();
+              dispatch({ type: "select-token", tokenId: token.id });
+            }}
             type="button"
           >
             {actor?.name.slice(0, 1) ?? token.name.slice(0, 1)}

@@ -75,6 +75,7 @@ export type SessionState = {
   tokens: SessionToken[];
   logs: LogEntry[];
   actionHistory: TableActionEvent[];
+  sheetNotes: Record<string, string>;
   selectedTokenId: string | null;
   combat: CombatState;
 };
